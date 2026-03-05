@@ -1,0 +1,404 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Электромонтаж PRO Orange Input</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg: var(--tg-theme-bg-color, #f9fafb);
+            --sec-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+            --text: var(--tg-theme-text-color, #1f2937);
+            --hint: var(--tg-theme-hint-color, #9ca3af);
+            --accent: #f97316;
+            --accent-hover: #ea580c;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .card { background-color: var(--sec-bg); }
+        
+        .tab-btn {
+            font-weight: 900;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-active { border-color: var(--accent); color: var(--accent); }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #fed7aa;
+            border-radius: 8px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px; height: 24px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .count-btn {
+            width: 38px; height: 38px;
+            border-radius: 12px;
+            background: var(--bg);
+            color: var(--accent);
+            font-weight: 900;
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .count-btn:active { transform: scale(0.9); }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px; height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #d1d5db;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .hidden-tab { display: none; }
+        
+        /* Orange Manual Count Input */
+        .manual-count-input {
+            width: 48px;
+            text-align: center;
+            background: transparent;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--accent); /* Оранжевый цвет как в системе */
+            border: none;
+            outline: none;
+            caret-color: var(--accent);
+            -moz-appearance: textfield;
+        }
+        .manual-count-input::-webkit-outer-spin-button,
+        .manual-count-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="pb-48">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-40 flex bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md shadow-sm border-b dark:border-zinc-800">
+        <button onclick="switchTab('main')" id="tab-main" class="tab-btn flex-1 py-4 tab-active">Монтаж</button>
+        <button onclick="switchTab('shield')" id="tab-shield" class="tab-btn flex-1 py-4">Щит</button>
+        <button onclick="switchTab('export')" id="tab-export" class="tab-btn flex-1 py-4 text-orange-500">Экспорт</button>
+    </nav>
+
+    <div class="max-w-md mx-auto p-4 space-y-5">
+        
+        <!-- Section: Base Settings -->
+        <section id="content-main">
+            <div class="card p-6 rounded-[2rem] shadow-sm border border-orange-100 dark:border-zinc-800">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <span class="text-[10px] font-black uppercase opacity-50 block mb-1">Объект</span>
+                        <div class="text-3xl font-black text-orange-500"><span id="areaVal">0</span> <span class="text-sm">м²</span></div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] font-black uppercase opacity-50 block mb-1">Тариф (₽/м²)</span>
+                        <input type="number" id="basePrice" inputmode="numeric" oninput="updateBaseSettings()" class="w-24 text-right font-black text-xl bg-transparent border-b-2 border-orange-200 outline-none focus:border-orange-500 text-orange-500">
+                    </div>
+                </div>
+                
+                <input type="range" id="areaSlider" min="0" max="300" step="1" oninput="updateBaseSettings()" class="w-full mb-6">
+
+                <div class="pt-4 border-t dark:border-zinc-800 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <label class="switch">
+                            <input type="checkbox" id="kEnabled" onchange="updateBaseSettings()">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="text-[10px] font-black uppercase opacity-60">Коэффициент K</span>
+                    </div>
+                    <div id="kInputBox" class="flex items-center gap-2 transition-opacity">
+                        <span class="opacity-30 font-bold">×</span>
+                        <input type="number" id="complexityK" step="0.1" min="0.1" inputmode="decimal" oninput="updateBaseSettings()" class="w-16 text-right font-black text-xl bg-transparent border-b-2 border-orange-200 outline-none text-orange-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Lists -->
+            <div class="mt-6 space-y-4">
+                <div class="flex justify-between items-center px-2">
+                    <h3 class="font-black text-[11px] uppercase opacity-40">Работы по монтажу</h3>
+                    <button onclick="openModal('main')" class="text-[10px] font-black bg-orange-500 text-white px-4 py-1.5 rounded-full uppercase">+ Услуга</button>
+                </div>
+                <div id="list-main" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Section: Shield -->
+        <section id="content-shield" class="hidden-tab">
+            <div class="space-y-4">
+                <div class="flex justify-between items-center px-2">
+                    <h3 class="font-black text-[11px] uppercase opacity-40">Наполнение щита</h3>
+                    <button onclick="openModal('shield')" class="text-[10px] font-black bg-orange-500 text-white px-4 py-1.5 rounded-full uppercase">+ Модуль</button>
+                </div>
+                <div id="list-shield" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Section: Export -->
+        <section id="content-export" class="hidden-tab">
+            <div class="card p-6 rounded-[2rem] border-2 border-dashed border-orange-200 text-center space-y-4">
+                <h4 class="font-black uppercase text-xs text-orange-600">Готовность сметы</h4>
+                <div class="grid gap-3">
+                    <button onclick="exportAction('copy')" class="py-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">💬 В Telegram</button>
+                    <button onclick="exportAction('pdf')" class="py-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">📄 Скачать PDF</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <div class="fixed bottom-0 left-0 right-0 p-6 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-t dark:border-zinc-800 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-end">
+            <div class="space-y-1">
+                <span class="text-[10px] font-black opacity-40 uppercase tracking-wider">Итоговая смета</span>
+                <div id="totalDisplay" class="text-4xl font-black text-orange-600 tracking-tighter">0 ₽</div>
+            </div>
+            <button onclick="toggleEditMode()" id="editToggle" class="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-2xl shadow-inner transition-transform active:scale-90">⚙️</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-6 z-[100] backdrop-blur-sm">
+        <div class="card w-full max-w-xs rounded-[2.5rem] p-8 shadow-2xl">
+            <h3 class="text-xl font-black mb-6 uppercase text-orange-600 tracking-tight">Добавить позицию</h3>
+            <div class="space-y-4">
+                <input type="text" id="modalName" placeholder="Название услуги" class="w-full p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none outline-none font-bold">
+                <input type="number" id="modalPrice" placeholder="Цена за ед." inputmode="numeric" class="w-full p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none outline-none font-bold">
+            </div>
+            <div class="flex gap-3 mt-8">
+                <button onclick="closeModal()" class="flex-1 py-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl font-black text-[10px] uppercase opacity-50">Отмена</button>
+                <button onclick="saveNewItem()" class="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) { tg.ready(); tg.expand(); }
+
+        const CONFIG = {
+            storageKey: 'electro_pro_v12_orange',
+            defaultState: {
+                area: 45,
+                basePrice: 1500,
+                complexity: 1.2,
+                isKEnabled: false,
+                main: [
+                    { id: 1, name: 'Установка подрозетника', price: 350, count: 0 },
+                    { id: 2, name: 'Монтаж розетки/выкл', price: 250, count: 0 }
+                ],
+                shield: [
+                    { id: 3, name: 'Автомат 1п', price: 500, count: 0 }
+                ]
+            }
+        };
+
+        let state = JSON.parse(localStorage.getItem(CONFIG.storageKey)) || CONFIG.defaultState;
+        let isEditMode = false;
+
+        function init() {
+            document.getElementById('areaSlider').value = state.area;
+            document.getElementById('basePrice').value = state.basePrice;
+            document.getElementById('complexityK').value = state.complexity;
+            document.getElementById('kEnabled').checked = state.isKEnabled;
+            
+            updateBaseSettings();
+            render();
+        }
+
+        function updateBaseSettings() {
+            state.area = parseInt(document.getElementById('areaSlider').value) || 0;
+            state.basePrice = parseInt(document.getElementById('basePrice').value) || 0;
+            state.complexity = parseFloat(document.getElementById('complexityK').value) || 1.0;
+            state.isKEnabled = document.getElementById('kEnabled').checked;
+
+            document.getElementById('areaVal').innerText = state.area;
+            document.getElementById('kInputBox').style.opacity = state.isKEnabled ? '1' : '0.3';
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            const sumItems = (arr) => arr.reduce((acc, item) => acc + (item.price * (item.count || 0)), 0);
+            const rawTotal = (state.area * state.basePrice) + sumItems(state.main) + sumItems(state.shield);
+            const finalTotal = Math.round(state.isKEnabled ? rawTotal * state.complexity : rawTotal);
+            
+            document.getElementById('totalDisplay').innerText = `${finalTotal.toLocaleString()} ₽`;
+            save();
+        }
+
+        function render() {
+            const renderList = (type) => {
+                const container = document.getElementById(`list-${type}`);
+                container.innerHTML = state[type].map(item => `
+                    <div class="card p-4 rounded-2xl flex items-center justify-between border dark:border-zinc-800">
+                        <div class="flex-1 pr-3">
+                            ${isEditMode ? 
+                                `<input type="text" value="${item.name}" oninput="editItem('${type}', ${item.id}, 'name', this.value)" class="w-full bg-zinc-50 dark:bg-zinc-800 p-1 rounded font-bold text-sm mb-1 outline-none">` :
+                                `<div class="font-bold text-sm leading-tight mb-1">${item.name}</div>`
+                            }
+                            <div class="flex items-center gap-2">
+                                ${isEditMode ? 
+                                    `<input type="number" value="${item.price}" oninput="editItem('${type}', ${item.id}, 'price', this.value)" class="w-20 bg-zinc-50 dark:bg-zinc-800 p-1 rounded text-xs text-orange-500 font-bold outline-none">` :
+                                    `<span class="text-[10px] font-bold text-orange-500 opacity-70">${item.price} ₽/ед.</span>`
+                                }
+                                ${isEditMode ? `<button onclick="deleteItem('${type}', ${item.id})" class="text-[9px] text-red-500 uppercase font-black">Удалить</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            <button onclick="changeCount('${type}', ${item.id}, -1)" class="count-btn text-lg">−</button>
+                            <input type="number" 
+                                   inputmode="numeric" 
+                                   value="${item.count}" 
+                                   oninput="manualInputCount('${type}', ${item.id}, this.value)" 
+                                   class="manual-count-input">
+                            <button onclick="changeCount('${type}', ${item.id}, 1)" class="count-btn text-lg">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            renderList('main');
+            renderList('shield');
+        }
+
+        function changeCount(type, id, delta) {
+            const item = state[type].find(i => i.id === id);
+            if (item) {
+                item.count = Math.max(0, (item.count || 0) + delta);
+                tg?.HapticFeedback?.impactOccurred('light');
+                calculateTotal();
+                render();
+            }
+        }
+
+        function manualInputCount(type, id, value) {
+            const item = state[type].find(i => i.id === id);
+            if (item) {
+                item.count = value === "" ? 0 : parseInt(value) || 0;
+                calculateTotal();
+            }
+        }
+
+        function editItem(type, id, field, value) {
+            const item = state[type].find(i => i.id === id);
+            if (item) {
+                item[field] = field === 'price' ? parseInt(value) || 0 : value;
+                calculateTotal();
+            }
+        }
+
+        function deleteItem(type, id) {
+            state[type] = state[type].filter(i => i.id !== id);
+            render();
+            calculateTotal();
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('editToggle');
+            btn.classList.toggle('bg-orange-500', isEditMode);
+            btn.classList.toggle('text-white', isEditMode);
+            btn.innerText = isEditMode ? '✅' : '⚙️';
+            document.getElementById('complexityK').readOnly = !isEditMode;
+            render();
+            tg?.HapticFeedback?.impactOccurred('medium');
+        }
+
+        function switchTab(tab) {
+            ['main', 'shield', 'export'].forEach(t => {
+                document.getElementById(`content-${t}`).classList.toggle('hidden-tab', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('tab-active', t === tab);
+            });
+        }
+
+        function openModal(target) {
+            currentModalTarget = target;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        function saveNewItem() {
+            const name = document.getElementById('modalName').value;
+            const price = parseInt(document.getElementById('modalPrice').value);
+            if (name && price) {
+                state[currentModalTarget].push({ id: Date.now(), name, price, count: 0 });
+                closeModal();
+                render();
+                calculateTotal();
+                document.getElementById('modalName').value = '';
+                document.getElementById('modalPrice').value = '';
+            }
+        }
+
+        async function exportAction(mode) {
+            const activeItems = [...state.main, ...state.shield].filter(i => i.count > 0);
+            let text = `⚡️ СМЕТА ПРОЕКТА\n------------------\n`;
+            if (state.area > 0) text += `🏠 Площадь: ${state.area}м² (${state.basePrice}₽/м²)\n`;
+            activeItems.forEach(i => text += `• ${i.name}: ${i.count}шт × ${i.price}₽\n`);
+            if (state.isKEnabled) text += `\n⚠️ Коэффициент: ×${state.complexity}\n`;
+            text += `------------------\n💰 ИТОГО: ${document.getElementById('totalDisplay').innerText}`;
+
+            if (mode === 'copy') {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                tg?.showAlert('Смета скопирована!');
+            } else {
+                tg?.showAlert('Генерация PDF...');
+            }
+        }
+
+        function save() { localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); }
+
+        init();
+    </script>
+</body>
+</html>
+
+
